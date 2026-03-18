@@ -1,8 +1,6 @@
 # genrobot_controller_sdk_python
 ## 环境部署
 ```
-PC机系统要求：ubuntu20.04
-通信：ros1系统
 环境按requirements.txt配置
 USB接口需3.0
 ```
@@ -119,4 +117,61 @@ encoder_callback         //夹爪开合度数据回调函数
 ```
 if self.system.databus:
     self.system.databus.set_target_distance(value)
+```
+
+## 设备相关参数获取 
+
+### 直接运行脚本
+```
+python3 scripts/camera_cmd.py <参数>
+```
+
+```
+
+**参数说明：**
+
+| 参数       | 说明                                |
+|----------- |------------------------------------|
+| `camerarc`| 中间相机标定（生成 `cam0_sensor.yaml`）|
+| `camerarl`| 左侧相机标定（生成 `cam1_sensor.yaml`）|
+| `camerarr`| 右侧相机标定（生成 `cam2_sensor.yaml`）|
+| `MCUID`   | 查询设备 MCUID                         |
+
+**标定生成的 YAML 文件** 会保存到 `scripts/calib_result/` 目录下。
+```
+### **示例：**
+
+
+### 单夹爪
+#### 获取相机标定文件
+```
+中间相机
+python3 scripts/camera_cmd.py camerarc  
+左边相机
+python3 scripts/camera_cmd.py camerarl
+右边相机
+python3 scripts/camera_cmd.py camerarr
+```
+#### 查询设备 ID
+```
+python3 scripts/camera_cmd.py MCUID
+```
+### 双夹爪
+#### 获取相机标定文件
+```
+中间相机
+python3 scripts/camera_cmd.py left camerarc  
+python3 scripts/camera_cmd.py right camerarc
+左边相机
+python3 scripts/camera_cmd.py left camerarl 
+python3 scripts/camera_cmd.py right camerarl
+右边相机
+python3 scripts/camera_cmd.py left camerarr  
+python3 scripts/camera_cmd.py right camerarr
+```
+
+#### 查询设备 ID
+```
+python3 scripts/camera_cmd.py left MCUID
+python3 scripts/camera_cmd.py right MCUID
 ```

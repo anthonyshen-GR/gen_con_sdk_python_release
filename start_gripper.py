@@ -11,8 +11,11 @@ import math
 import threading
 from typing import Optional
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from gen_controller_sdk_python import GripperSystem
+# 将项目根目录加入路径，以便能 import scripts
+_sdk_root = os.path.dirname(os.path.abspath(__file__))
+if _sdk_root not in sys.path:
+    sys.path.insert(0, _sdk_root)
+from scripts import GripperSystem
 
 
 def capture_frames_callback(camera):
@@ -68,7 +71,7 @@ def tactile_callback(record_data: bytes):
     if len(record_data) != 448:
         return
     try:
-        raw_left_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(0, 224)]
+        raw_left_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(0, 224)] 
         raw_right_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(224, 448)]
         print(f"tactile: left{len(raw_left_224)}, right{len(raw_right_224)}")
     except Exception as e:
