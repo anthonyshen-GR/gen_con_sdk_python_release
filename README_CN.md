@@ -69,7 +69,7 @@ sudo udevadm trigger
 ### 单爪启动demo
 
 ```
-cd gen_controller_sdk_python
+cd gen_con_sdk_python_release
 
 python3 start_gripper.py left   # 当前配置夹爪固定打开5cm
 

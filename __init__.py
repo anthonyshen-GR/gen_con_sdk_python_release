@@ -1,6 +1,7 @@
 """
-Gen Controller SDK Python - 顶层包
-从 scripts 子包重新导出公共 API，便于 from gen_controller_sdk_python import GripperSystem 等用法。
+Gen Controller SDK Python — top-level package.
+Re-exports public API from the scripts subpackage for imports like
+`from scripts import GripperSystem`.
 """
 
 from .scripts import (

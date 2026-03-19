@@ -70,7 +70,7 @@ Run the `start_gripper.py` demo file.
 ### Single Gripper Demo
 
 ```
-cd gen_controller_sdk_python
+cd gen_con_sdk_python_release
 
 python3 start_gripper.py left   # Gripper fixed open at 5 cm (current config)
 

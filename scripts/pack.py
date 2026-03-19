@@ -40,7 +40,7 @@ class Record(object):
         packet += struct.pack("B", self.record_type.value)
         packet += struct.pack(
             "<Q", self.record_content_length
-        )  # <Q 表示小端无符号64位整数
+        )  # <Q = little-endian uint64
         packet += self.record_data
         return packet
 
@@ -121,8 +121,8 @@ class CmdPack(Pack):
         packet += PackContent.Magic
         packet += struct.pack("B", opcode.value)
         packet += struct.pack("B", record_type.value)
-        # packet += struct.pack("<Q", record_content_length)  # <Q 表示小端无符号64位整数
-        packet += struct.pack(">I", record_content_length)  # >I 表示大端无符号32位整数
+        # packet += struct.pack("<Q", record_content_length)  # <Q = little-endian uint64
+        packet += struct.pack(">I", record_content_length)  # >I = big-endian uint32
         packet += struct.pack("B", 0)
         packet += struct.pack("B", 0)
         # packet += struct.pack("B", 0)
@@ -157,7 +157,7 @@ class CmdPack(Pack):
         if not cls.check_head(data) or not cls.check_tail(data):
             return None
 
-        # 计算数据包各部分的位置
+        # Offsets inside the packet
         magic_len = len(PackContent.Magic)
         header_end = magic_len
         opcode_pos = header_end
@@ -219,7 +219,7 @@ class MessagePack(Pack):
             packet += struct.pack("B", record.record_type.value)
             packet += struct.pack(
                 "<Q", record.record_content_length
-            )  # <Q 表示小端无符号64位整数
+            )  # <Q = little-endian uint64
             packet += record.record_data
 
         packet += PackContent.Magic
@@ -228,7 +228,7 @@ class MessagePack(Pack):
     @classmethod
     def unpack(cls, data: bytes) -> "MessagePack":
         try:
-            # 先检查数据包头尾是否完整
+            # Require valid head and tail magic
             if not cls.check_head(data) or not cls.check_tail(data):
                 return None
 
@@ -243,16 +243,15 @@ class MessagePack(Pack):
 
             data_end = len(data) - magic_len
             while i < data_end:
-                # 检查是否有足够的数据读取record_type
+                # Enough bytes for record_type?
                 if i >= data_end:
                     break
                 record_type_pos = i
                 record_type_value = data[record_type_pos]
                 
-                # 检查是否有足够的数据读取长度字段（8字节）
+                # Enough bytes for 8-byte length field?
                 length_pos = record_type_pos + 1
                 if length_pos + 8 > data_end:
-                    # 数据不完整，返回None
                     return None
                     
                 record_content_length = struct.unpack(
@@ -262,24 +261,19 @@ class MessagePack(Pack):
                 record_start = length_pos + 8
                 record_end = record_start + record_content_length
                 
-                # 检查record数据是否完整（必须在数据包范围内）
                 if record_end > data_end:
-                    # 数据不完整，返回None，等待更多数据
                     return None
                     
                 record_data = data[record_start:record_end]
                 
-                # 验证实际读取的数据长度是否匹配
                 if len(record_data) != record_content_length:
-                    # 数据不完整
                     return None
 
                 records.append(Record(RecordType(record_type_value), record_data))
 
                 i = record_end
 
-            # 只有在数据完整解析成功后才打印unpack data
-            # print("unpack data: {}".format(data.hex()))
+            # Optional: print("unpack data: {}".format(data.hex()))
             return MessagePack(data=data, opcode=Opcode(opcode_value), records=records)
         except Exception  as e:
             traceback.print_exc()
@@ -294,7 +288,7 @@ class MessagePack(Pack):
             magic_len = len(PackContent.Magic)
             middle = data[magic_len : -magic_len]
 
-            # 无 YAML 时为简单响应（MCUID、1234 等）：只打印两个 das\r\n 之间的数据并返回
+            # No YAML env: simple response (MCUID, 1234, etc.) — print payload between magics
             if not os.environ.get("CALIB_YAML_FILENAME"):
                 try:
                     print("MCUID:", middle.decode("utf-8"))
@@ -325,16 +319,12 @@ class MessagePack(Pack):
             # Parse the protobuf-like payload
             calib_info = cls._parse_protobuf_calib(payload)
 
-            # 检查是否需要生成YAML文件
             yaml_filename = os.environ.get("CALIB_YAML_FILENAME")
             if yaml_filename:
-                # 有YAML文件名，生成YAML文件
                 yaml_content = cls._generate_yaml(calib_info)
-                print("生成YAML内容: ", yaml_content)
+                print("Generated YAML content: ", yaml_content)
                 try:
-                    # 获取gen_controller_python_sdk目录的绝对路径（当前文件所在目录）
                     script_dir = os.path.dirname(os.path.abspath(__file__))
-                    # 在gen_controller_python_sdk目录下创建calib_result文件夹
                     result_dir = os.path.join(script_dir, "calib_result")
 
                     if not os.path.exists(result_dir):
@@ -344,14 +334,13 @@ class MessagePack(Pack):
                     with open(file_path, "w") as f:
                         f.write(yaml_content)
                     
-                    print(f"✅ 相机标定文件已保存: {file_path}")
+                    print(f"Camera calibration YAML saved: {file_path}")
                     return True
                 except Exception as e:
-                    print(f"保存标定文件错误: {e}")
+                    print(f"Failed to save calibration file: {e}")
                     return False
             else:
-                # 没有YAML文件名，不生成文件
-                print("✅ 标定数据解析成功 (不生成YAML文件)")
+                print("Calibration data parsed (no YAML file requested)")
                 return True
 
         except Exception as e:
@@ -450,7 +439,7 @@ class MessagePack(Pack):
                         break
         
         except Exception as e:
-            print(f"解析protobuf数据错误: {e}")                
+            print(f"Protobuf parse error: {e}")                
         return info
 
     @staticmethod

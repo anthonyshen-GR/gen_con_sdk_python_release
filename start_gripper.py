@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""启动脚本 - 启动夹爪设备和摄像头"""
+"""Startup script — launches gripper hardware and cameras."""
 
 import sys
 import os
@@ -11,7 +11,7 @@ import math
 import threading
 from typing import Optional
 
-# 将项目根目录加入路径，以便能 import scripts
+# Add project root to path for `import gen_controller_sdk_python`
 _sdk_root = os.path.dirname(os.path.abspath(__file__))
 if _sdk_root not in sys.path:
     sys.path.insert(0, _sdk_root)
@@ -19,7 +19,7 @@ from scripts import GripperSystem
 
 
 def capture_frames_callback(camera):
-    """摄像头帧采集回调函数"""
+    """Callback for camera frame capture."""
     if camera.show_preview:
         for cam in camera.cameras:
             cv2.namedWindow(cam['window_name'], cv2.WINDOW_NORMAL)
@@ -40,7 +40,7 @@ def capture_frames_callback(camera):
                     try:
                         camera.frame_callback(cam['id'], frame, timestamp_ns)
                     except Exception as e:
-                        print(f"回调函数错误: {e}")
+                        print(f"Frame callback error: {e}")
                     cam['frame_count'] += 1
                 frames_data.append((cam, frame if ret else None))
             
@@ -52,13 +52,13 @@ def capture_frames_callback(camera):
             if sleep_time > 0:
                 time.sleep(sleep_time)
     except Exception as e:
-        print(f"采集过程中出错: {e}")
+        print(f"Capture error: {e}")
     finally:
         camera._release_resources()
 
 
 def _display_frames(camera, frames_data):
-    """显示摄像头画面"""
+    """Show camera preview windows."""
     for cam, frame in frames_data:
         if frame is not None:
             cv2.imshow(cam['window_name'], frame)
@@ -67,7 +67,7 @@ def _display_frames(camera, frames_data):
 
 
 def tactile_callback(record_data: bytes):
-    """触觉数据回调函数"""
+    """Tactile sensor data callback."""
     if len(record_data) != 448:
         return
     try:
@@ -75,20 +75,20 @@ def tactile_callback(record_data: bytes):
         raw_right_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(224, 448)]
         print(f"tactile: left{len(raw_left_224)}, right{len(raw_right_224)}")
     except Exception as e:
-        print(f"处理触觉数据错误: {e}")
+        print(f"Tactile data handler error: {e}")
 
 
 def encoder_callback(record_data: bytes):
-    """编码器数据回调函数"""
+    """Encoder data callback."""
     try:
         encoder_value = struct.unpack(">f", record_data)[0]
         print(f"gripper distance: {encoder_value:.3f} m")
     except Exception as e:
-        print(f"处理编码器数据错误: {e}")
+        print(f"Encoder data handler error: {e}")
 
 
 class SineWaveController:
-    """正弦波控制类"""
+    """Sinusoidal gripper position control."""
     
     def __init__(self, system: GripperSystem, amplitude: float = 0.05, 
                  center: float = 0.05, frequency: float = 0.5, duration: float = 1000):
@@ -103,21 +103,21 @@ class SineWaveController:
         self.control_interval = 1.0 / 50.0
         
     def start(self):
-        """开始正弦波控制"""
+        """Start sinusoidal control."""
         if self.running:
             return
         if self.amplitude <= 0 or self.center - self.amplitude < 0 or self.center + self.amplitude > 0.103:
-            print("❌ 正弦波参数超出范围")
+            print(" Sine wave parameters out of valid range")
             return
         
         self.running = True
         self.start_time = time.time()
         self.control_thread = threading.Thread(target=self._control_loop, daemon=True)
         self.control_thread.start()
-        print(f"🚀 开始正弦波控制: 中心={self.center:.3f}m, 振幅=±{self.amplitude:.3f}m, 频率={self.frequency:.2f}Hz")
+        print(f"🚀 Sine wave started: center={self.center:.3f}m, amplitude=±{self.amplitude:.3f}m, freq={self.frequency:.2f}Hz")
     
     def stop(self):
-        """停止正弦波控制"""
+        """Stop sinusoidal control."""
         if not self.running:
             return
         self.running = False
@@ -125,7 +125,7 @@ class SineWaveController:
             self.control_thread.join(timeout=1.0)
     
     def _control_loop(self):
-        """控制循环"""
+        """Control loop thread body."""
         try:
             while self.running:
                 cycle_start = time.time()
@@ -146,21 +146,21 @@ class SineWaveController:
                 if sleep_time > 0:
                     time.sleep(sleep_time)
         except Exception as e:
-            print(f"❌ 正弦波控制错误: {e}")
+            print(f" Sine wave control error: {e}")
             self.running = False
 
 
 class GripperController:
-    """夹爪控制器，管理不同控制模式"""
+    """High-level gripper control (fixed distance vs sine wave)."""
     
     def __init__(self, system: GripperSystem):
         self.system = system
         self.sine_wave_controller: Optional[SineWaveController] = None
         
     def set_fixed_distance(self, distance: float):
-        """设置固定夹爪距离"""
+        """Set a fixed gripper opening distance."""
         if distance < 0.0 or distance > 0.103:
-            print(f"⚠️ 警告: 距离值 {distance} 超出范围 [0.0, 0.103]，已忽略")
+            print(f" Warning: distance {distance} out of range [0.0, 0.103], ignored")
             return
         
         if self.sine_wave_controller and self.sine_wave_controller.running:
@@ -168,13 +168,13 @@ class GripperController:
         
         try:
             self.system.set_gripper_distance(distance)
-            print(f"✅ 设置夹爪固定距离: {distance} m ({distance*100:.1f} cm)")
+            print(f"Fixed gripper distance set: {distance} m ({distance*100:.1f} cm)")
         except Exception as e:
-            print(f"❌ 设置夹爪距离失败: {e}")
+            print(f" Failed to set gripper distance: {e}")
     
     def start_sine_wave(self, amplitude: float = 0.05, center: float = 0.05, 
                         frequency: float = 0.5, duration: float = 60.0):
-        """开始正弦波控制"""
+        """Start sinusoidal control."""
         if self.sine_wave_controller and self.sine_wave_controller.running:
             self.sine_wave_controller.stop()
         
@@ -185,17 +185,17 @@ class GripperController:
         self.sine_wave_controller.start()
     
     def stop_sine_wave(self):
-        """停止正弦波控制"""
+        """Stop sinusoidal control."""
         if self.sine_wave_controller:
             self.sine_wave_controller.stop()
     
     def is_sine_wave_running(self) -> bool:
-        """检查正弦波控制是否在运行"""
+        """Return True if sine wave control is active."""
         return self.sine_wave_controller.running if self.sine_wave_controller else False
 
 
 def main():
-    """主函数"""
+    """CLI entry point."""
     SIDE_CONFIG = {
         'left': {
             'serial_port': "/dev/ttyDeviceLeft",
@@ -215,28 +215,28 @@ def main():
         }
     }
     
-    parser = argparse.ArgumentParser(description="启动夹爪系统（支持正弦波控制）")
+    parser = argparse.ArgumentParser(description="Start gripper system (optional sine wave mode)")
     parser.add_argument("side", type=str, choices=['left', 'right'],
-                       help="指定夹爪侧（left 或 right）")
+                       help="Gripper side: left or right")
     parser.add_argument("--camera-resolutions", type=str, default="1600x1296",
-                       help="摄像头分辨率，格式为'widthxheight'")
+                       help="Camera resolution as 'widthxheight'")
     parser.add_argument("--no-preview", action="store_true",
-                       help="不显示摄像头预览窗口")
+                       help="Do not show camera preview windows")
     
     control_group = parser.add_mutually_exclusive_group()
     control_group.add_argument("--distance", type=float, default=None,
-                              help="设置固定夹爪距离（米），范围[0.0, 0.103]")
+                              help="Fixed gripper distance in meters, range [0.0, 0.103]")
     control_group.add_argument("--sine-wave", action="store_true",
-                              help="启用正弦波控制模式")
+                              help="Enable sine wave control mode")
     
     parser.add_argument("--amplitude", type=float, default=0.025,
-                       help="正弦波振幅（米），默认0.025")
+                       help="Sine amplitude in meters (default 0.025)")
     parser.add_argument("--center", type=float, default=0.05,
-                       help="正弦波中心位置（米），默认0.05")
+                       help="Sine center position in meters (default 0.05)")
     parser.add_argument("--frequency", type=float, default=0.5,
-                       help="正弦波频率（Hz），默认0.5")
+                       help="Sine frequency in Hz (default 0.5)")
     parser.add_argument("--duration", type=float, default=10.0,
-                       help="正弦波持续时间（秒），0表示无限，默认10.0")
+                       help="Sine duration in seconds; 0 = run forever (default 10.0)")
     
     args = parser.parse_args()
     config = SIDE_CONFIG[args.side]
@@ -254,7 +254,7 @@ def main():
     controller = GripperController(system)
     
     def setup_control_mode():
-        """在系统初始化完成后设置控制模式"""
+        """Apply control mode after DataBus is ready."""
         max_wait_time = 10.0
         wait_interval = 0.1
         elapsed_time = 0.0
@@ -274,14 +274,14 @@ def main():
                 return
             time.sleep(wait_interval)
             elapsed_time += wait_interval
-        print("⚠️ 警告: 系统初始化超时，未能设置控制模式")
+        print(" Warning: system init timed out; control mode not applied")
     
     threading.Thread(target=setup_control_mode, daemon=True).start()
     
     try:
         system.start()
     except KeyboardInterrupt:
-        print("\n用户中断")
+        print("\nInterrupted by user")
     finally:
         if controller.is_sine_wave_running():
             controller.stop_sine_wave()

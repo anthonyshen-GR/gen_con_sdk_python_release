@@ -19,8 +19,8 @@ from .pack import CmdPack, MessagePack, Opcode, RecordType
 from .das_protocol import DASProtocol
 
 
-# 默认回调函数已移至用户脚本中（gripper_controller.py, start_gripper.py, camera_cmd.py）
-# 这样即使 databus.py 被加密，用户仍然可以访问和修改回调函数
+# Default callbacks live in user scripts (gripper_controller.py, start_gripper.py, camera_cmd.py)
+# so they stay editable even if databus.py is shipped obfuscated.
 
 
 class DataBus:
@@ -37,18 +37,18 @@ class DataBus:
         camera_calib_callback: Optional[Callable] = None,
     ):
         """
-        初始化DataBus
-        
+        Initialize DataBus.
+
         Args:
-            tty_port: 串口设备路径
-            baudrate: 波特率
-            timeout: 超时时间
-            is_calib_cmd: 是否为标定命令模式
-            encoder_freq: 编码器查询频率（Hz）
-            tactile_freq: 触觉传感器查询频率（Hz）
-            tactile_callback: 触觉数据回调函数
-            encoder_callback: 编码器数据回调函数
-            camera_calib_callback: 摄像头标定数据回调函数
+            tty_port: Serial device path.
+            baudrate: Baud rate.
+            timeout: Read timeout (seconds).
+            is_calib_cmd: Calibration command mode.
+            encoder_freq: Encoder poll rate (Hz).
+            tactile_freq: Tactile poll rate (Hz).
+            tactile_callback: Tactile record handler.
+            encoder_callback: Encoder record handler.
+            camera_calib_callback: Camera calibration handler.
         """
         self.tty_port = tty_port
         self.baudrate = baudrate
@@ -77,21 +77,19 @@ class DataBus:
         self.angle_lock = threading.Lock()
         self.is_calib_cmd = is_calib_cmd
         
-        # 设置回调函数（如果未提供则为None，调用时会检查）
         self.tactile_callback = tactile_callback
         self.encoder_callback = encoder_callback
         self.camera_calib_callback = camera_calib_callback
 
         self._open_serial()
         if not self._open_serial_success:
-            raise RuntimeError(f"无法打开串口: {tty_port}")
+            raise RuntimeError(f"Failed to open serial port: {tty_port}")
         
         self.is_running = True
         self._start_reading()
         self._start_parsing()
         self._start_sending()
         
-        # 启动循环线程
         if self.encoder_freq:
             self._start_encoder_loop()
         if self.tactile_freq:
@@ -99,25 +97,24 @@ class DataBus:
 
     def set_target_distance(self, distance: float):
         """
-        设置目标距离（夹爪开合度）
-        
+        Set target gripper opening (encoder setpoint).
+
         Args:
-            distance: 目标距离，范围[0.0, 0.103]米（最大10cm）
+            distance: Meters in [0.0, 0.103] (~10 cm max).
         """
         if distance < 0.0 or distance > 0.103:
-            raise ValueError(f"距离必须在[0.0, 0.103]范围内，当前值: {distance}")
+            raise ValueError(f"Distance must be in [0.0, 0.103], got: {distance}")
         
         with self.angle_lock:
             self.gripper_dis = distance
-        # print(f"设置目标距离: {distance} m")
 
     def get_target_distance(self) -> float:
-        """获取当前目标距离"""
+        """Current target distance."""
         with self.angle_lock:
             return self.gripper_dis
 
     def drive_motor(self, angle_dgree: float):
-        """驱动电机"""
+        """Send drive command."""
         self.add_cmd(
             CmdPack.pack(
                 opcode=Opcode.WriteDrive,
@@ -127,7 +124,7 @@ class DataBus:
         )
 
     def disable_motor(self):
-        """禁用电机"""
+        """Disable motor drive."""
         self.add_cmd(
             CmdPack.pack(
                 opcode=Opcode.DisableDrive,
@@ -136,7 +133,7 @@ class DataBus:
         )
     
     def calib_encoder(self):
-        """标定编码器"""
+        """Request encoder calibration."""
         self.add_cmd(
             CmdPack.pack(
                 opcode=Opcode.CalibEncoder,
@@ -145,7 +142,7 @@ class DataBus:
         )
 
     def send_camera_calib_cmd(self, camera_cmd: str):
-        """发送摄像头标定命令"""
+        """Enqueue camera calibration command string."""
         try:
             self.is_calib_cmd = True
             cmd = CmdPack.pack_calib(
@@ -153,41 +150,37 @@ class DataBus:
             )
             success = self.add_cmd(cmd)
             if success:
-                print(f"发送摄像头标定命令: {camera_cmd}")
+                print(f"Sent camera calibration command: {camera_cmd}")
             else:
-                print(f"发送摄像头标定命令失败: {camera_cmd}")
+                print(f"Failed to queue camera calibration: {camera_cmd}")
             return success
         except Exception as e:
-            print(f"发送摄像头标定命令时出错: {e}")
+            print(f"Error sending camera calibration command: {e}")
             return False
 
     def add_cmd(self, cmd: CmdPack) -> bool:
-        """添加命令到队列"""
+        """Push command to send queue."""
         try:
             self.cmd_queue.put(cmd, block=True, timeout=1)
             return True
         except queue.Full:
-            print("命令队列已满，添加失败")
+            print("Command queue full; drop")
             return False
 
     def is_opened(self):
-        """检查串口是否已打开"""
+        """True if serial opened successfully."""
         return self._open_serial_success
 
     def register_tactile_callback(self, callback: Callable):
-        """注册触觉数据回调函数"""
         self.tactile_callback = callback
 
     def register_encoder_callback(self, callback: Callable):
-        """注册编码器数据回调函数"""
         self.encoder_callback = callback
 
     def register_camera_calib_callback(self, callback: Callable):
-        """注册摄像头标定数据回调函数"""
         self.camera_calib_callback = callback
 
     def _open_serial(self):
-        """打开串口"""
         try:
             self.ser = serial.Serial(
                 port=self.tty_port,
@@ -199,57 +192,51 @@ class DataBus:
             )
 
             if self.ser.is_open:
-                print(f"打开串口成功: {self.tty_port}, 波特率: {self.baudrate}")
+                print(f"Serial opened: {self.tty_port}, baudrate: {self.baudrate}")
                 self._open_serial_success = True
             else:
-                print(f"打开串口失败: {self.tty_port}")
+                print(f"Serial open failed: {self.tty_port}")
                 self._open_serial_success = False
         except Exception as e:
-            print(f"打开串口时出错: {e}")
+            print(f"Serial open error: {e}")
             self._open_serial_success = False
 
     def _start_reading(self):
-        """启动读取线程"""
         self.read_thread = threading.Thread(target=self._reading_loop)
         self.read_thread.daemon = True
         self.read_thread.start()
-        print("读取线程已启动")
+        print("Read thread started")
         return True
 
     def _start_parsing(self):
-        """启动解析线程"""
         self.parse_thread = threading.Thread(target=self._parsing_loop)
         self.parse_thread.daemon = True
         self.parse_thread.start()
-        print("解析线程已启动")
+        print("Parse thread started")
         return True
 
     def _start_encoder_loop(self):
-        """启动编码器循环线程"""
         self.encoder_thread = threading.Thread(target=self._send_encoder_loop)
         self.encoder_thread.daemon = True
         self.encoder_thread.start()
-        print("编码器循环线程已启动")
+        print("Encoder loop thread started")
         return True
 
     def _start_tactile_loop(self):
-        """启动触觉循环线程"""
         self.tactile_thread = threading.Thread(target=self._send_tactile_loop)
         self.tactile_thread.daemon = True
         self.tactile_thread.start()
-        print("触觉循环线程已启动")
+        print("Tactile loop thread started")
         return True
 
     def _start_sending(self):
-        """启动发送线程"""
         self.send_thread = threading.Thread(target=self._sending_loop)
         self.send_thread.daemon = True
         self.send_thread.start()
-        print("发送线程已启动")
+        print("Send thread started")
         return True
 
     def _sending_loop(self):
-        """发送线程主循环"""
         while self.is_running:
             try:
                 cmd: CmdPack = self.cmd_queue.get(block=True, timeout=0.1)
@@ -261,47 +248,40 @@ class DataBus:
             except queue.Empty:
                 continue
             except Exception as e:
-                print(f"发送错误: {e}")
+                print(f"Send error: {e}")
                 time.sleep(0.01)
 
     def _reading_loop(self):
-        """读取线程主循环"""
         while self.is_running:
             try:
                 with self.serial_lock:
                     if self.ser and self.ser.is_open:
                         n = self.ser.inWaiting()
                         if n:
-                            # 读取所有可用数据，但限制单次读取大小避免阻塞
-                            # 921600波特率下，单次读取不超过16KB
                             read_size = min(n, 16384)
                             data = self.ser.read(read_size)
                             if data:
                                 with self.data_buffer_lock:
                                     self.data_buffer = self.data_buffer + data
-                                # 如果还有数据未读完，继续读取，不立即休眠
                                 if n > read_size:
                                     continue
 
             except Exception as e:
-                print(f"读取循环错误: {e}")
+                print(f"Read loop error: {e}")
                 time.sleep(0.1)
 
-            time.sleep(0.001)  # 适当休眠，避免CPU占用过高
+            time.sleep(0.001)
 
     def _parsing_loop(self):
-        """解析线程主循环"""
         while self.is_running:
             packets_to_process = []
             
-            # 快速获取数据包列表，减少锁持有时间
             with self.data_buffer_lock:
                 if len(self.data_buffer) > 0:
                     packets, remain = DASProtocol.find_packet(self.data_buffer)
                     self.data_buffer = remain
-                    packets_to_process = packets.copy()  # 复制列表以便在锁外处理
+                    packets_to_process = packets.copy()
                     
-            # 在锁外处理数据包，避免阻塞读取线程
             for packet in packets_to_process:
                 try:
                     if self.is_calib_cmd:
@@ -314,11 +294,8 @@ class DataBus:
                     else:
                         pack = MessagePack.unpack(packet)
                         if not pack:
-                            # unpack返回None表示数据不完整，这是正常的，不需要记录错误
-                            # 数据包会被保留在缓冲区中，等待更多数据到达
                             continue
 
-                        # 数据包解析成功，处理其中的记录
                         for record in pack.records_:
                             try:
                                 if record.record_type == RecordType.Tactile:
@@ -328,36 +305,32 @@ class DataBus:
                                     if self.encoder_callback:
                                         self.encoder_callback(record.record_data)
                                 elif record.record_type == RecordType.Echo:
-                                    # Echo 类型数据不再处理
                                     pass
                                 else:
                                     logging.error(
                                         "record type:{} invalid !".format(record.record_type)
                                     )
                             except Exception as e:
-                                logging.error(f"回调函数执行错误: {e}")
+                                logging.error(f"Callback error: {e}")
                                 
                 except Exception as e:
-                    logging.error(f"数据包处理错误: {e}")
+                    logging.error(f"Packet handling error: {e}")
 
-            # 根据是否有数据包调整休眠时间
             if packets_to_process:
-                time.sleep(0.001)  # 有数据时快速处理
+                time.sleep(0.001)
             else:
-                time.sleep(0.005)  # 无数据时稍长休眠，但不要太长
+                time.sleep(0.005)
 
     def _send_encoder_loop(self):
-        """编码器循环线程"""
         if not self.encoder_freq:
             return
             
         interval = 1.0 / self.encoder_freq
-        print(f"编码器循环启动，频率: {self.encoder_freq}Hz, 间隔: {interval:.3f}s")
+        print(f"Encoder loop running at {self.encoder_freq} Hz, interval {interval:.3f}s")
         
         while self.is_running:
             start_time = time.time()
             
-            # 下发距离指令到电机
             with self.angle_lock:
                 dis_target = self.gripper_dis
             
@@ -369,21 +342,19 @@ class DataBus:
                 ),
             )
             
-            # 精确控制间隔时间
             elapsed = time.time() - start_time
             sleep_time = max(0, interval - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-        print("退出编码器循环线程")
+        print("Encoder loop thread exiting")
 
     def _send_tactile_loop(self):
-        """触觉循环线程"""
         if not self.tactile_freq:
             return
             
         interval = 1.0 / self.tactile_freq
-        print(f"触觉循环启动，频率: {self.tactile_freq}Hz, 间隔: {interval:.3f}s")
+        print(f"Tactile loop running at {self.tactile_freq} Hz, interval {interval:.3f}s")
         
         while self.is_running:
             start_time = time.time()
@@ -391,20 +362,18 @@ class DataBus:
                 CmdPack.pack(opcode=Opcode.ReadSingle, record_type=RecordType.Tactile, record=struct.pack(">f", 0.0))
             )
             
-            # 精确控制间隔时间
             elapsed = time.time() - start_time
             sleep_time = max(0, interval - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
 
-        print("退出触觉循环线程")
+        print("Tactile loop thread exiting")
 
     def stop(self):
-        """停止所有线程"""
-        print("正在停止所有线程...")
+        """Stop worker threads and close serial."""
+        print("Stopping all threads...")
         self.is_running = False
         
-        # 等待所有线程结束
         threads_to_join = []
         if self.read_thread and self.read_thread.is_alive():
             threads_to_join.append(self.read_thread)
@@ -424,7 +393,6 @@ class DataBus:
             self.ser.close()
 
     def get_serial_info(self):
-        """获取串口信息"""
         if self.ser and self.ser.is_open:
             info = {
                 "tty_port": self.tty_port,
@@ -440,82 +408,72 @@ class DataBus:
 
 
 def check_and_fix_permission(port):
-    """检查并修复串口设备权限"""
+    """Ensure current user can read/write the serial node."""
     if not os.path.exists(port):
         return False
     
-    # 检查当前用户是否有读写权限
     if os.access(port, os.R_OK | os.W_OK):
         return True
     
-    print(f"尝试修复 {port} 的权限...")
+    print(f"Trying to fix permissions on {port}...")
     try:
-        # 尝试修改权限
         subprocess.run(['sudo', 'chmod', '666', port], check=True)
-        print(f"权限修复成功: {port}")
+        print(f"Permissions fixed: {port}")
         return True
     except subprocess.CalledProcessError:
-        print(f"权限修复失败，请手动执行: sudo chmod 666 {port}")
+        print(f"Permission fix failed; run manually: sudo chmod 666 {port}")
         return False
 
 
 def find_configured_serial_port():
     """
-    查找已配置的USB串口设备（符号链接）
-    只查找 /dev/ttyDevice* 格式的符号链接
-    
+    Find configured USB serial symlinks under /dev/ttyDevice*.
+
     Returns:
-        串口设备路径，如果未找到则返回None
+        First accessible port path, or None.
     """
-    # 查找所有 /dev/ttyDevice* 设备
     import glob
     configured_ports = glob.glob('/dev/ttyDevice*')
     
     if not configured_ports:
         return None
     
-    # 返回第一个存在的有权限的设备
     for port in sorted(configured_ports):
         if os.path.exists(port) and check_and_fix_permission(port):
             return port
     
-    # 如果都有权限问题，返回第一个（让用户手动处理）
     return sorted(configured_ports)[0] if configured_ports else None
 
 
 def find_serial_port(pattern="ttyUSB", max_retries=3, retry_interval=2):
     """
-    查找已配置的USB串口设备（符号链接）
-    只查找 /dev/ttyDevice* 格式的符号链接，不再使用未配置的ttyUSB设备
-    
+    Prefer /dev/ttyDevice* symlinks from udev rules (raw ttyUSB is not used).
+
     Args:
-        pattern: 已废弃，保留仅为兼容性
-        max_retries: 已废弃，保留仅为兼容性
-        retry_interval: 已废弃，保留仅为兼容性
-    
+        pattern: Deprecated, kept for API compatibility.
+        max_retries: Deprecated.
+        retry_interval: Deprecated.
+
     Returns:
-        串口设备路径，如果未找到则返回None并显示错误提示
+        Port path or None (prints setup hints).
     """
-    # 只查找已配置的符号链接设备
     configured_port = find_configured_serial_port()
     
     if configured_port:
-        print(f"使用已配置的串口设备: {configured_port}")
+        print(f"Using configured serial device: {configured_port}")
         return configured_port
     
-    # 未找到已配置的设备，显示错误提示
     print("\n" + "=" * 60)
-    print("❌ 错误：未找到已配置的USB串口设备")
+    print(" No configured USB serial symlink found")
     print("=" * 60)
-    print("\n请按照以下步骤配置USB设备：")
-    print("1. 参考 python/配置方法样例/README_CN.md 中的配置方法")
-    print("2. 创建 udev 规则文件（如 99-usb-serial.rules）")
-    print("3. 将规则文件复制到 /etc/udev/rules.d/")
-    print("4. 加载配置：")
+    print("\nSetup:")
+    print("1. See repository docs (e.g. README_En.md) for udev examples")
+    print("2. Create a rules file (e.g. 99-usb-serial.rules)")
+    print("3. Copy to /etc/udev/rules.d/")
+    print("4. Reload:")
     print("   sudo udevadm control --reload-rules")
     print("   sudo udevadm trigger")
-    print("\n配置完成后，应该能在 /dev/ 目录下看到 ttyDevice* 符号链接")
-    print("例如: /dev/ttyDeviceLeft 或其他自定义名称")
+    print("\nYou should then see /dev/ttyDevice* symlinks")
+    print("e.g. /dev/ttyDeviceLeft or your custom names")
     print("=" * 60 + "\n")
     return None
-
