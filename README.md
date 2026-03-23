@@ -100,6 +100,8 @@ Start:
 python3 start_gripper.py left
 In another terminal:
 python3 start_gripper.py right
+Tactile Data Reading：
+python start_gripper.py right --print-tactile-info
 ```
 
 After startup, six image windows will appear.

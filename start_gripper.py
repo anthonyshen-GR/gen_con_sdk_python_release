@@ -11,12 +11,16 @@ import math
 import threading
 from typing import Optional
 
-# Add project root to path for `import gen_controller_sdk_python`
-_sdk_root = os.path.dirname(os.path.abspath(__file__))
+_sdk_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _sdk_root not in sys.path:
     sys.path.insert(0, _sdk_root)
 from scripts import GripperSystem
-
+from tactile_processing import (
+    convert_tactile_448_to_1000,
+    set_tactile_grid_print_enabled,
+    set_tactile_grid_print_max_hz,
+    submit_tactile_1000_grid_print,
+)
 
 def capture_frames_callback(camera):
     """Callback for camera frame capture."""
@@ -67,13 +71,10 @@ def _display_frames(camera, frames_data):
 
 
 def tactile_callback(record_data: bytes):
-    """Tactile sensor data callback."""
-    if len(record_data) != 448:
-        return
+    """Tactile callback: convert and enqueue grid print (non-blocking for serial parse thread)."""
     try:
-        raw_left_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(0, 224)] 
-        raw_right_224 = [struct.unpack("B", record_data[i:i+1])[0] for i in range(224, 448)]
-        print(f"tactile: left{len(raw_left_224)}, right{len(raw_right_224)}")
+        left_tactile_500, right_tactile_500 = convert_tactile_448_to_1000(record_data)
+        submit_tactile_1000_grid_print(left_tactile_500 + right_tactile_500)
     except Exception as e:
         print(f"Tactile data handler error: {e}")
 
@@ -237,8 +238,21 @@ def main():
                        help="Sine frequency in Hz (default 0.5)")
     parser.add_argument("--duration", type=float, default=10.0,
                        help="Sine duration in seconds; 0 = run forever (default 10.0)")
+    parser.add_argument(
+        "--print-tactile-info",
+        action="store_true",
+        help="Print tactile grid to terminal (50 lines: L10 + gap + R10 per line); default is off",
+    )
+    parser.add_argument(
+        "--tactile-print-hz",
+        type=float,
+        default=0.0,
+        help="Cap tactile grid print rate (Hz); 0 = no cap. Reduces terminal load while showing latest frame per print.",
+    )
     
     args = parser.parse_args()
+    set_tactile_grid_print_enabled(args.print_tactile_info)
+    set_tactile_grid_print_max_hz(args.tactile_print_hz)
     config = SIDE_CONFIG[args.side]
     
     system = GripperSystem(

@@ -99,6 +99,8 @@ cd gen_controller_sdk_python
 python3 start_gripper.py left
 另一终端启动
 python3 start_gripper.py right
+触觉数据读取
+python start_gripper.py right --print-tactile-info
 ```
 
 启动后会弹出六个图像窗口
