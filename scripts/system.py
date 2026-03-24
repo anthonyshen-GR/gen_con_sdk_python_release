@@ -113,8 +113,7 @@ class GripperSystem:
             self.databus = DataBus(
                 tty_port=self.serial_port,
                 baudrate=921600,
-                encoder_freq=50,  # 50 Hz encoder polling
-                # tactile_freq=50,
+                encoder_freq=30,  # 30 Hz encoder polling
                 tactile_callback=self.tactile_callback,
                 encoder_callback=self.encoder_callback,
             )

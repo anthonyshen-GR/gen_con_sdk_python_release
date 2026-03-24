@@ -101,7 +101,7 @@ class SineWaveController:
         self.running = False
         self.control_thread = None
         self.start_time = 0
-        self.control_interval = 1.0 / 50.0
+        self.control_interval = 1.0 / 30.0
         
     def start(self):
         """Start sinusoidal control."""
