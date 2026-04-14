@@ -23,35 +23,40 @@ from tactile_processing import (
 )
 
 def capture_frames_callback(camera):
-    """Callback for camera frame capture."""
+    """Callback for camera frame capture — uses background grab thread."""
     if camera.show_preview:
         for cam in camera.cameras:
             cv2.namedWindow(cam['window_name'], cv2.WINDOW_NORMAL)
             cv2.resizeWindow(cam['window_name'], 640, 480)
-    
+
+    camera._start_grab_threads()
+
     target_fps = 30
     frame_interval = 1.0 / target_fps
-    
+
     try:
         while camera.running:
-            start_time = time.time()
-            timestamp_ns = time.time_ns()
+            start_time = time.monotonic()
             frames_data = []
-            
+
             for cam in camera.cameras:
-                ret, frame = cam['cap'].read()
-                if ret and camera.frame_callback:
-                    try:
-                        camera.frame_callback(cam['id'], frame, timestamp_ns)
-                    except Exception as e:
-                        print(f"Frame callback error: {e}")
-                    cam['frame_count'] += 1
-                frames_data.append((cam, frame if ret else None))
-            
+                frame, ts_ns = camera._get_latest(cam)
+                if frame is not None:
+                    now = time.monotonic()
+                    cam['disp_fps_ts'].append(now)
+                    if len(cam['disp_fps_ts']) > 30:
+                        cam['disp_fps_ts'] = cam['disp_fps_ts'][-30:]
+                    if len(cam['disp_fps_ts']) >= 2:
+                        dt = cam['disp_fps_ts'][-1] - cam['disp_fps_ts'][0]
+                        if dt > 0:
+                            cam['disp_fps_val'] = (len(cam['disp_fps_ts']) - 1) / dt
+
+                frames_data.append((cam, frame if frame is not None else None))
+
             if camera.show_preview:
                 _display_frames(camera, frames_data)
-            
-            elapsed = time.time() - start_time
+
+            elapsed = time.monotonic() - start_time
             sleep_time = max(0, frame_interval - elapsed)
             if sleep_time > 0:
                 time.sleep(sleep_time)
@@ -62,9 +67,16 @@ def capture_frames_callback(camera):
 
 
 def _display_frames(camera, frames_data):
-    """Show camera preview windows."""
+    """Show camera preview windows with FPS overlay."""
     for cam, frame in frames_data:
         if frame is not None:
+            timestamp = time.strftime("%H:%M:%S", time.localtime())
+            info_text = f"Camera_{cam['id']} | {timestamp} | Frames: {cam['frame_count']}"
+            cv2.putText(frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7, (0, 255, 0), 2)
+            fps_text = f"Cap: {cam['cap_fps_val']:.1f}  Disp: {cam['disp_fps_val']:.1f}"
+            cv2.putText(frame, fps_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7, (0, 255, 255), 2)
             cv2.imshow(cam['window_name'], frame)
     if cv2.waitKey(1) == 27:
         camera.running = False

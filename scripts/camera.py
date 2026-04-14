@@ -169,7 +169,14 @@ class CameraCapture:
                     'frame_count': 0,
                     'width': actual_width,
                     'height': actual_height,
-                    'window_name': window_name
+                    'window_name': window_name,
+                    'lock': threading.Lock(),
+                    'latest_frame': None,
+                    'latest_ts_ns': 0,
+                    'cap_fps_ts': [],
+                    'cap_fps_val': 0.0,
+                    'disp_fps_ts': [],
+                    'disp_fps_val': 0.0,
                 })
                 return True
 
@@ -325,69 +332,129 @@ class CameraCapture:
         
         print(f"\nOpened {len(self.cameras)} camera(s)")
 
+    def _sync_grab_loop(self):
+        """Background thread: grab all cameras synchronously, then retrieve and cache."""
+        while self.running:
+            # Grab all cameras as close together as possible
+            grab_results = {}
+            for cam in self.cameras:
+                grab_results[cam['id']] = cam['cap'].grab()
+
+            now = time.monotonic()
+            ts_ns = time.time_ns()
+
+            for cam in self.cameras:
+                if not grab_results[cam['id']]:
+                    continue
+                ret, frame = cam['cap'].retrieve()
+                if not ret or frame is None:
+                    continue
+
+                # Fire frame callback
+                if self.frame_callback:
+                    try:
+                        self.frame_callback(cam['id'], frame, ts_ns)
+                    except Exception as e:
+                        print(f"Frame callback error: {e}")
+                cam['frame_count'] += 1
+
+                with cam['lock']:
+                    cam['latest_frame'] = frame
+                    cam['latest_ts_ns'] = ts_ns
+
+                # Capture FPS (sliding window of last 30 frames)
+                cam['cap_fps_ts'].append(now)
+                if len(cam['cap_fps_ts']) > 30:
+                    cam['cap_fps_ts'] = cam['cap_fps_ts'][-30:]
+                if len(cam['cap_fps_ts']) >= 2:
+                    dt = cam['cap_fps_ts'][-1] - cam['cap_fps_ts'][0]
+                    if dt > 0:
+                        cam['cap_fps_val'] = (len(cam['cap_fps_ts']) - 1) / dt
+
+    def _start_grab_threads(self):
+        """Start the background sync-grab thread."""
+        t = threading.Thread(target=self._sync_grab_loop, daemon=True)
+        self._grab_thread = t
+        t.start()
+
+    def _stop_grab_threads(self):
+        """Stop the background grab thread."""
+        self.running = False
+        t = getattr(self, '_grab_thread', None)
+        if t and t.is_alive():
+            t.join(timeout=3)
+
+    def _get_latest(self, cam):
+        """Thread-safe: return the latest cached frame and timestamp, then clear."""
+        with cam['lock']:
+            frame = cam['latest_frame']
+            ts_ns = cam['latest_ts_ns']
+            cam['latest_frame'] = None
+        return frame, ts_ns
+
     def _display_frames(self, frames_data):
         """Draw overlay and show frames."""
         for cam, frame in frames_data:
             if frame is not None:
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
                 info_text = f"Camera_{cam['id']} | {timestamp} | Frames: {cam['frame_count']}"
-                cv2.putText(frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 
+                cv2.putText(frame, info_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                           0.7, (0, 255, 0), 2)
-                
+                fps_text = f"Cap: {cam['cap_fps_val']:.1f}  Disp: {cam['disp_fps_val']:.1f}"
+                cv2.putText(frame, fps_text, (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                          0.7, (0, 255, 255), 2)
+
                 cv2.imshow(cam['window_name'], frame)
-        
+
         if cv2.waitKey(1) == 27:
             self.running = False
 
     def capture_frames_callback(self):
         """
-        Capture loop (legacy; main app may use start_gripper.capture_frames_callback).
-        Kept for backward compatibility.
+        Capture loop: background thread grabs frames, main loop displays.
         """
         print(f"\nCapturing from {len(self.cameras)} camera(s)...")
         print("Press ESC or Ctrl+C to stop")
-        
+
         if self.show_preview:
             for cam in self.cameras:
                 RESIZE_WIDTH = 640
                 RESIZE_HEIGHT = 480
                 cv2.namedWindow(cam['window_name'], cv2.WINDOW_NORMAL)
                 cv2.resizeWindow(cam['window_name'], RESIZE_WIDTH, RESIZE_HEIGHT)
-        
-        frame_num = 0
+
+        self._start_grab_threads()
+
         target_fps = 30
         frame_interval = 1.0 / target_fps
-        
+
         try:
             while self.running:
+                start_time = time.monotonic()
                 frames_data = []
-                timestamp_ns = time.time_ns()
-                start_time = time.time()
-                
+
                 for cam in self.cameras:
-                    ret, frame = cam['cap'].read()
-                    if not ret:
-                        frame = None
-                    else:
-                        if self.frame_callback:
-                            try:
-                                self.frame_callback(cam['id'], frame, timestamp_ns)
-                            except Exception as e:
-                                print(f"Frame callback error: {e}")
-                        cam['frame_count'] += 1
-                    
+                    frame, ts_ns = self._get_latest(cam)
+                    if frame is not None:
+                        now = time.monotonic()
+                        cam['disp_fps_ts'].append(now)
+                        if len(cam['disp_fps_ts']) > 30:
+                            cam['disp_fps_ts'] = cam['disp_fps_ts'][-30:]
+                        if len(cam['disp_fps_ts']) >= 2:
+                            dt = cam['disp_fps_ts'][-1] - cam['disp_fps_ts'][0]
+                            if dt > 0:
+                                cam['disp_fps_val'] = (len(cam['disp_fps_ts']) - 1) / dt
+
                     frames_data.append((cam, frame))
-                
+
                 if self.show_preview:
                     self._display_frames(frames_data)
-                
-                frame_num += 1
-                
-                elapsed = time.time() - start_time
+
+                elapsed = time.monotonic() - start_time
                 sleep_time = max(0, frame_interval - elapsed)
                 if sleep_time > 0:
                     time.sleep(sleep_time)
-                
+
         except Exception as e:
             print(f"Capture error: {e}")
         finally:
@@ -398,13 +465,14 @@ class CameraCapture:
         self.capture_frames_callback()
 
     def _release_resources(self):
-        """Release OpenCV captures and windows."""
+        """Stop grab threads, release OpenCV captures and windows."""
+        self._stop_grab_threads()
         for cam in self.cameras:
             try:
                 cam['cap'].release()
             except:
                 pass
-        
+
         if self.show_preview:
             for cam in self.cameras:
                 try:
@@ -415,5 +483,5 @@ class CameraCapture:
     def stop(self):
         """Stop capture thread logic."""
         self.running = False
-        self._release_resources()
+        self._stop_grab_threads()
 
