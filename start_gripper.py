@@ -31,8 +31,7 @@ def capture_frames_callback(camera):
 
     camera._start_grab_threads()
 
-    target_fps = 30
-    frame_interval = 1.0 / target_fps
+    frame_interval = 1.0 / camera.target_fps
 
     try:
         while camera.running:
@@ -235,6 +234,8 @@ def main():
                        help="Camera resolution as 'widthxheight'")
     parser.add_argument("--no-preview", action="store_true",
                        help="Do not show camera preview windows")
+    parser.add_argument("--camera-fps", type=int, default=30,
+                       help="Target camera display frame rate (default 30)")
     
     control_group = parser.add_mutually_exclusive_group()
     control_group.add_argument("--distance", type=float, default=None,
@@ -275,6 +276,7 @@ def main():
         tactile_callback=tactile_callback,
         encoder_callback=encoder_callback,
         capture_frames_callback=capture_frames_callback,
+        camera_fps=args.camera_fps,
     )
     
     controller = GripperController(system)

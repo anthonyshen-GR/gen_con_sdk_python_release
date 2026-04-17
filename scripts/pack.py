@@ -443,7 +443,7 @@ class MessagePack(Pack):
         return info
 
     @staticmethod
-    def _generate_yaml(info):
+    def _generate_yaml(info, rate_hz=30):
         # Map model name
         model = "kb4" if info["model"] == "equidistant" else info["model"]
 
@@ -514,7 +514,7 @@ class MessagePack(Pack):
         yaml_str += "]\n\n"
 
         yaml_str += "# Camera specific definitions.\n"
-        yaml_str += "rate_hz: 30\n"
+        yaml_str += f"rate_hz: {rate_hz}\n"
         yaml_str += f"resolution: [{info['width']}, {info['height']}]\n"
         yaml_str += f"camera_model: {model}\n"
         yaml_str += (

@@ -77,6 +77,9 @@ python3 start_gripper.py left --distance 0.08  # 夹爪固定打开8cm，输入�
 
 python3 start_gripper.py left --sine-wave  # 夹爪持续开合10s
 
+相机帧率（V4的Controller需要将帧率修改为60才能得到30fps的的图像数据）
+python start_gripper.py left --camera-fps 60
+
 ```
 
 启动后会弹出三个图像窗口:
@@ -101,6 +104,8 @@ python3 start_gripper.py left
 python3 start_gripper.py right
 触觉数据读取
 python start_gripper.py right --print-tactile-info
+相机帧率（V4的Controller需要将帧率修改为60才能得到30fps的的图像数据）
+python start_gripper.py left --camera-fps 60
 ```
 
 启动后会弹出六个图像窗口

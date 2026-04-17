@@ -23,6 +23,7 @@ class GripperSystem:
         tactile_callback: Optional[Callable] = None,
         encoder_callback: Optional[Callable] = None,
         capture_frames_callback: Optional[Callable] = None,
+        camera_fps: int = 30,
     ):
         """
         Initialize the gripper system.
@@ -36,6 +37,7 @@ class GripperSystem:
             encoder_callback: Optional encoder data callback.
             capture_frames_callback: Optional frame capture callback; if omitted,
                 uses camera.capture_frames_callback().
+            camera_fps: Target camera display frame rate (default 30).
         """
         self.running = True
         self.serial_port = serial_port
@@ -45,6 +47,7 @@ class GripperSystem:
         self.tactile_callback = tactile_callback
         self.encoder_callback = encoder_callback
         self.capture_frames_callback = capture_frames_callback
+        self.camera_fps = camera_fps
         
         # Parse resolution strings
         self.resolutions = []
@@ -96,6 +99,7 @@ class GripperSystem:
                 resolutions=self.resolutions,
                 show_preview=self.show_preview,
                 video_devices=self.video_devices,
+                target_fps=self.camera_fps,
             )
             print("Cameras initialized")
             signal.signal(signal.SIGINT, self._signal_handler)

@@ -78,6 +78,8 @@ python3 start_gripper.py left --distance 0.08  # Gripper fixed open at 8 cm; dis
 
 python3 start_gripper.py left --sine-wave  # Gripper opens and closes continuously for 10 s
 
+Camera frame rate (The V4 Controller needs to change the frame rate to 60 to obtain 30fps image data.)
+python start_gripper.py left --camera-fps 60
 ```
 
 After startup, three image windows will appear:
@@ -102,6 +104,8 @@ In another terminal:
 python3 start_gripper.py right
 Tactile Data Reading：
 python start_gripper.py right --print-tactile-info
+Camera frame rate (The V4 Controller needs to change the frame rate to 60 to obtain 30fps image data.)
+python start_gripper.py left --camera-fps 60
 ```
 
 After startup, six image windows will appear.

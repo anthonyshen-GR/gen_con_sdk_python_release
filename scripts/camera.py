@@ -26,6 +26,7 @@ class CameraCapture:
         show_preview: bool = True,
         video_devices: List[str] = None,
         frame_callback: Optional[Callable] = None,
+        target_fps: int = 30,
     ):
         """
         Initialize multi-camera capture.
@@ -37,6 +38,7 @@ class CameraCapture:
             show_preview: Show OpenCV preview windows.
             video_devices: Explicit device paths e.g. ["/dev/video0", ...].
             frame_callback: callback(camera_id, frame, timestamp_ns).
+            target_fps: Target display frame rate (default 30).
         """
         self.serial_port = serial_port
         self.camera_count = camera_count
@@ -44,6 +46,7 @@ class CameraCapture:
         self.show_preview = show_preview
         self.video_devices = video_devices or []
         self.frame_callback = frame_callback
+        self.target_fps = target_fps
         
         self.cameras = []
         self.running = True
@@ -132,7 +135,8 @@ class CameraCapture:
                     return False
 
                 cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M','J','P','G'))
-                
+                cap.set(cv2.CAP_PROP_FPS, self.target_fps)
+
                 success = False
                 actual_width = 0
                 actual_height = 0
@@ -425,8 +429,7 @@ class CameraCapture:
 
         self._start_grab_threads()
 
-        target_fps = 30
-        frame_interval = 1.0 / target_fps
+        frame_interval = 1.0 / self.target_fps
 
         try:
             while self.running:
