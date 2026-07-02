@@ -30,6 +30,7 @@ class DataBus:
         baudrate=921600,
         timeout=0.5,
         is_calib_cmd=False,
+        calib_cmd_name: str = None,
         encoder_freq: float = None,
         tactile_freq: float = None,
         tactile_callback: Optional[Callable] = None,
@@ -44,6 +45,7 @@ class DataBus:
             baudrate: Baud rate.
             timeout: Read timeout (seconds).
             is_calib_cmd: Calibration command mode.
+            calib_cmd_name: Calibration command name (e.g. MCUID, DMZEROSET).
             encoder_freq: Encoder poll rate (Hz).
             tactile_freq: Tactile poll rate (Hz).
             tactile_callback: Tactile record handler.
@@ -76,6 +78,9 @@ class DataBus:
         self.gripper_dis = 0.0
         self.angle_lock = threading.Lock()
         self.is_calib_cmd = is_calib_cmd
+        self.calib_cmd_name = calib_cmd_name
+        if calib_cmd_name:
+            os.environ["CALIB_CMD_NAME"] = calib_cmd_name
         
         self.tactile_callback = tactile_callback
         self.encoder_callback = encoder_callback
@@ -285,12 +290,43 @@ class DataBus:
             for packet in packets_to_process:
                 try:
                     if self.is_calib_cmd:
+                        magic = DASProtocol.MAGIC
+                        if (
+                            len(packet) > 2 * len(magic)
+                            and packet.startswith(magic)
+                            and packet.endswith(magic)
+                        ):
+                            middle = packet[len(magic):-len(magic)]
+                            try:
+                                text = middle.decode("ascii")
+                            except Exception:
+                                text = middle.hex()
+                            if self.calib_cmd_name == "MCUID":
+                                print("MCUID:", text)
+                            else:
+                                print(f"Device response ({self.calib_cmd_name}): {text}")
+                            self.is_calib_cmd = False
+                            continue
+
                         camera_pack = MessagePack.unpack_camera_calib(packet)
-                        
+
                         if camera_pack:
                             if self.camera_calib_callback:
                                 self.camera_calib_callback(camera_pack)
                             self.is_calib_cmd = False
+                            continue
+
+                        pack = MessagePack.unpack(packet)
+                        if pack:
+                            for record in pack.records_:
+                                if record.record_type == RecordType.Echo:
+                                    try:
+                                        text = record.record_data.decode("utf-8")
+                                    except Exception:
+                                        text = record.record_data.hex()
+                                    print(f"Device response ({self.calib_cmd_name}): {text}")
+                                    self.is_calib_cmd = False
+                                    break
                     else:
                         pack = MessagePack.unpack(packet)
                         if not pack:
@@ -368,6 +404,18 @@ class DataBus:
                 time.sleep(sleep_time)
 
         print("Tactile loop thread exiting")
+
+    def wait_for_calib_response(self, timeout=3.0, poll_interval=0.05):
+        """Wait until calib response is received or timeout expires."""
+        if not self.is_calib_cmd:
+            return True
+        print("Waiting for device response...")
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if not self.is_calib_cmd:
+                return True
+            time.sleep(poll_interval)
+        return not self.is_calib_cmd
 
     def stop(self):
         """Stop worker threads and close serial."""

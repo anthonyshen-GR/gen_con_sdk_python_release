@@ -37,9 +37,9 @@ def main():
     usage = """
 Usage:
   Single-device mode (default when left/right omitted):
-    python -m gen_controller_python_sdk.camera_cmd {1234|camerarc|camerarl|camerarr|MCUID}
+    python -m gen_controller_python_sdk.camera_cmd {1234|camerarc|camerarl|camerarr|MCUID|DMZEROSET}
   Dual-device mode (left or right):
-    python -m gen_controller_python_sdk.camera_cmd {left|right} {1234|camerarc|camerarl|camerarr|MCUID}
+    python -m gen_controller_python_sdk.camera_cmd {left|right} {1234|camerarc|camerarl|camerarr|MCUID|DMZEROSET}
 
   Optional env: SERIAL_PORT=/dev/ttyUSB0 (overrides left/right default port)
 
@@ -50,6 +50,7 @@ Usage:
     camerarl   - Calibrate left camera (writes cam1_sensor_{single|left|right}.yaml)
     camerarr   - Calibrate right camera (writes cam2_sensor_{single|left|right}.yaml)
     MCUID      - Query device MCUID
+    DMZEROSET  - Set DM zero offset
     """
     
     if len(sys.argv) < 2:
@@ -67,7 +68,7 @@ Usage:
             sys.exit(1)
         record_value = sys.argv[2]
     
-    valid_commands = ['1234', 'camerarc', 'camerarl', 'camerarr', 'MCUID']
+    valid_commands = ['1234', 'camerarc', 'camerarl', 'camerarr', 'MCUID', 'DMZEROSET']
     if record_value not in valid_commands:
         print(f"Error: argument must be one of {valid_commands}")
         print(usage)
@@ -111,21 +112,27 @@ Usage:
             tty_port=serial_port,
             baudrate=921600,
             is_calib_cmd=True,
+            calib_cmd_name=record_value,
             camera_calib_callback=camera_calib_callback,
         )
         time.sleep(1.0)
         bus.add_cmd(CmdPack.pack_calib(record=record_value.encode("utf-8")))
-        time.sleep(0.5)
-        
-        print("Waiting for device response...")
-        time.sleep(2.0)
-        
+
+        if record_value in ("MCUID", "DMZEROSET"):
+            bus.wait_for_calib_response(timeout=3.0)
+        elif record_value.startswith("camera"):
+            bus.wait_for_calib_response(timeout=2.0)
+        else:
+            time.sleep(0.5)
+
         bus.stop()
-        
+
         if record_value == "1234":
             print("Calibration OK !")
         elif record_value == "MCUID":
             print("MCUID query executed")
+        elif record_value == "DMZEROSET":
+            print("DMZEROSET command executed")
         else:
             print(f"Finished sending command: {record_value}")
             if yaml_filename:

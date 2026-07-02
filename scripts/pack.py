@@ -340,7 +340,13 @@ class MessagePack(Pack):
                     print(f"Failed to save calibration file: {e}")
                     return False
             else:
-                print("Calibration data parsed (no YAML file requested)")
+                cmd_name = os.environ.get("CALIB_CMD_NAME", "")
+                prefix = f"Device response ({cmd_name})" if cmd_name else "Device response"
+                try:
+                    text = payload.decode("ascii")
+                    print(f"{prefix}: {text}")
+                except Exception:
+                    print(f"{prefix}: {payload.hex()}")
                 return True
 
         except Exception as e:
