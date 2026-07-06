@@ -1,4 +1,4 @@
-# Gen Controller Python SDK
+# Gen Gripper Controller Python SDK
 
 > Pure Python SDK for Gen Controller gripper — camera streaming, tactile sensing, encoder feedback, and distance control. No ROS dependency.
 

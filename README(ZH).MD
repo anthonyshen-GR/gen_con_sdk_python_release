@@ -1,4 +1,4 @@
-# Gen Controller Python SDK
+# Gen Gripper Controller Python SDK
 
 > 用于 Gen Controller 夹爪的纯 Python SDK，支持相机图像、触觉传感、编码器反馈及开合距离控制，无需 ROS。
 
