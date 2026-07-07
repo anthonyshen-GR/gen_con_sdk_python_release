@@ -291,6 +291,19 @@ class DataBus:
                 try:
                     if self.is_calib_cmd:
                         magic = DASProtocol.MAGIC
+                        is_camera_cmd = (
+                            self.calib_cmd_name
+                            and self.calib_cmd_name.startswith("camera")
+                        )
+
+                        if is_camera_cmd:
+                            camera_pack = MessagePack.unpack_camera_calib(packet)
+                            if camera_pack:
+                                if self.camera_calib_callback:
+                                    self.camera_calib_callback(camera_pack)
+                                self.is_calib_cmd = False
+                                continue
+
                         if (
                             len(packet) > 2 * len(magic)
                             and packet.startswith(magic)
@@ -308,13 +321,13 @@ class DataBus:
                             self.is_calib_cmd = False
                             continue
 
-                        camera_pack = MessagePack.unpack_camera_calib(packet)
-
-                        if camera_pack:
-                            if self.camera_calib_callback:
-                                self.camera_calib_callback(camera_pack)
-                            self.is_calib_cmd = False
-                            continue
+                        if not is_camera_cmd:
+                            camera_pack = MessagePack.unpack_camera_calib(packet)
+                            if camera_pack:
+                                if self.camera_calib_callback:
+                                    self.camera_calib_callback(camera_pack)
+                                self.is_calib_cmd = False
+                                continue
 
                         pack = MessagePack.unpack(packet)
                         if pack:
