@@ -36,6 +36,7 @@ class DataBus:
         tactile_callback: Optional[Callable] = None,
         encoder_callback: Optional[Callable] = None,
         camera_calib_callback: Optional[Callable] = None,
+        gripper_type: str = "default_gripper",
     ):
         """
         Initialize DataBus.
@@ -72,6 +73,7 @@ class DataBus:
 
         self.encoder_freq = encoder_freq
         self.tactile_freq = tactile_freq
+        self.gripper_type = gripper_type
         self.encoder_thread: threading.Thread = None
         self.tactile_thread: threading.Thread = None
         
@@ -125,6 +127,7 @@ class DataBus:
                 opcode=Opcode.WriteDrive,
                 record_type=RecordType.Drive,
                 record=struct.pack(">f", angle_dgree),
+                gripper_type=self.gripper_type,
             )
         )
 
@@ -134,6 +137,7 @@ class DataBus:
             CmdPack.pack(
                 opcode=Opcode.DisableDrive,
                 record_type=RecordType.Drive,
+                gripper_type=self.gripper_type,
             )
         )
     
@@ -143,6 +147,7 @@ class DataBus:
             CmdPack.pack(
                 opcode=Opcode.CalibEncoder,
                 record_type=RecordType.Drive,
+                gripper_type=self.gripper_type,
             )
         )
 
@@ -387,7 +392,8 @@ class DataBus:
                 CmdPack.pack(
                     opcode=Opcode.ReadBatch, 
                     record_type=RecordType.Encoder, 
-                    record=struct.pack(">f", dis_target)
+                    record=struct.pack(">f", dis_target),
+                    gripper_type=self.gripper_type,
                 ),
             )
             
@@ -408,7 +414,12 @@ class DataBus:
         while self.is_running:
             start_time = time.time()
             self.add_cmd(
-                CmdPack.pack(opcode=Opcode.ReadSingle, record_type=RecordType.Tactile, record=struct.pack(">f", 0.0))
+                CmdPack.pack(
+                    opcode=Opcode.ReadSingle,
+                    record_type=RecordType.Tactile,
+                    record=struct.pack(">f", 0.0),
+                    gripper_type=self.gripper_type,
+                )
             )
             
             elapsed = time.time() - start_time

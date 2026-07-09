@@ -236,6 +236,9 @@ def main():
                        help="Do not show camera preview windows")
     parser.add_argument("--camera-fps", type=int, default=30,
                        help="Target camera display frame rate (default 30)")
+    parser.add_argument("--gripper-type", type=str, default="default_gripper",
+                       choices=["default_gripper", "tactile_gripper", "soft_gripper"],
+                       help="Gripper type: default_gripper, tactile_gripper, or soft_gripper")
     
     control_group = parser.add_mutually_exclusive_group()
     control_group.add_argument("--distance", type=float, default=None,
@@ -277,6 +280,7 @@ def main():
         encoder_callback=encoder_callback,
         capture_frames_callback=capture_frames_callback,
         camera_fps=args.camera_fps,
+        gripper_type=args.gripper_type,
     )
     
     controller = GripperController(system)

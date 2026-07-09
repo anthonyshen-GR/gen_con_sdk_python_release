@@ -24,6 +24,7 @@ class GripperSystem:
         encoder_callback: Optional[Callable] = None,
         capture_frames_callback: Optional[Callable] = None,
         camera_fps: int = 30,
+        gripper_type: str = "default_gripper",
     ):
         """
         Initialize the gripper system.
@@ -48,6 +49,7 @@ class GripperSystem:
         self.encoder_callback = encoder_callback
         self.capture_frames_callback = capture_frames_callback
         self.camera_fps = camera_fps
+        self.gripper_type = gripper_type
         
         # Parse resolution strings
         self.resolutions = []
@@ -120,6 +122,7 @@ class GripperSystem:
                 encoder_freq=30,  # 30 Hz encoder polling
                 tactile_callback=self.tactile_callback,
                 encoder_callback=self.encoder_callback,
+                gripper_type=self.gripper_type,
             )
             print("Serial communication ready")
         except Exception as e:

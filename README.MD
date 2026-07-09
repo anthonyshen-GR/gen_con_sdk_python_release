@@ -48,6 +48,14 @@ Three preview windows appear by default. Encoder distance and tactile data are p
 python3 start_gripper.py left --distance 0.05
 ```
 
+Select the gripper type with `--gripper-type`. The maximum opening distance depends on the gripper:
+
+| Gripper type | Maximum opening distance |
+| --- | ---: |
+| `default_gripper` | `0.103` m |
+| `tactile_gripper` | `0.0998` m |
+| `soft_gripper` | `0.103` m |
+
 
 
 ## 4 Program Interface
@@ -83,10 +91,10 @@ Send target opening distance through `DataBus`:
 
 ```python
 if self.system.databus:
-    self.system.databus.set_target_distance(value)  # range [0.0, 0.103] meters
+    self.system.databus.set_target_distance(value)
 ```
 
-Valid range: `[0.0, 0.103]` m (max ~10.3 cm).
+Use a target distance within the maximum opening distance for the selected gripper type.
 
 For dual-gripper setups, run separate processes with `left` or `right` — each connects to its own serial port (`/dev/ttyDeviceLeft` or `/dev/ttyDeviceRight`).
 
@@ -142,6 +150,8 @@ cd gen_con_sdk_python_release
 
 python3 start_gripper.py left                              # Fixed open at 5 cm (default)
 python3 start_gripper.py left --distance 0.08              # Fixed open at 8 cm
+python3 start_gripper.py left --gripper-type tactile_gripper
+python3 start_gripper.py left --gripper-type soft_gripper
 python3 start_gripper.py left --sine-wave                    # Open/close continuously for 10 s
 python3 start_gripper.py left --camera-fps 60                # V4 Controller: set 60 fps for 30 fps output
 python3 start_gripper.py left --no-preview                   # Disable preview windows

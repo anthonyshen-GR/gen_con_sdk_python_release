@@ -46,6 +46,14 @@ python3 start_gripper.py left
 python3 start_gripper.py left --distance 0.05
 ```
 
+通过 `--gripper-type` 切换夹爪类型。不同夹爪的最大打开后距离如下：
+
+| 夹爪类型 | 最大打开后距离 |
+| --- | ---: |
+| `default_gripper` | `0.103` m |
+| `tactile_gripper` | `0.0998` m |
+| `soft_gripper` | `0.103` m |
+
 
 
 ## 4 程序接口
@@ -81,10 +89,10 @@ python3 start_gripper.py left --distance 0.05
 
 ```python
 if self.system.databus:
-    self.system.databus.set_target_distance(value)  # 范围 [0.0, 0.103] 米
+    self.system.databus.set_target_distance(value)
 ```
 
-有效范围：`[0.0, 0.103]` m（最大约 10.3 cm）。
+目标距离不要超过所选夹爪类型的最大打开后距离。
 
 双爪场景下，分别以 `left` 或 `right` 启动独立进程 — 各自连接对应串口（`/dev/ttyDeviceLeft` 或 `/dev/ttyDeviceRight`）。
 
@@ -140,6 +148,8 @@ cd gen_con_sdk_python_release
 
 python3 start_gripper.py left                              # 固定开合 5 cm（默认）
 python3 start_gripper.py left --distance 0.08              # 固定开合 8 cm
+python3 start_gripper.py left --gripper-type tactile_gripper
+python3 start_gripper.py left --gripper-type soft_gripper
 python3 start_gripper.py left --sine-wave                    # 连续开合 10 秒
 python3 start_gripper.py left --camera-fps 60                # V4 Controller：设为 60 fps 以获得 30 fps 输出
 python3 start_gripper.py left --no-preview                   # 关闭预览窗口
