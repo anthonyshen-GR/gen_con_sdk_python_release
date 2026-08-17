@@ -37,20 +37,24 @@ def main():
     usage = """
 Usage:
   Single-device mode (default when left/right omitted):
-    python -m gen_controller_python_sdk.camera_cmd {1234|camerarc|camerarl|camerarr|MCUID|DMZEROSET}
+    python -m gen_controller_python_sdk.camera_cmd {1234|camerarc|camerarl|camerarr|camerar2c|camerar2l|camerar2r|MCUID|DMZEROSET|VERSION}
   Dual-device mode (left or right):
-    python -m gen_controller_python_sdk.camera_cmd {left|right} {1234|camerarc|camerarl|camerarr|MCUID|DMZEROSET}
+    python -m gen_controller_python_sdk.camera_cmd {left|right} {1234|camerarc|camerarl|camerarr|camerar2c|camerar2l|camerar2r|MCUID|DMZEROSET|VERSION}
 
   Optional env: SERIAL_PORT=/dev/ttyUSB0 (overrides left/right default port)
 
   Arguments:
     left/right - Optional gripper side (omit for single-device mode)
     1234       - Confirm calibration complete
-    camerarc   - Calibrate center camera (writes cam0_sensor_{single|left|right}.yaml)
-    camerarl   - Calibrate left camera (writes cam1_sensor_{single|left|right}.yaml)
-    camerarr   - Calibrate right camera (writes cam2_sensor_{single|left|right}.yaml)
+    camerarc   - 640x480 center camera calibration (writes cam0_sensor_{single|left|right}.yaml)
+    camerarl   - 640x480 left camera calibration (writes cam1_sensor_{single|left|right}.yaml)
+    camerarr   - 640x480 right camera calibration (writes cam2_sensor_{single|left|right}.yaml)
+    camerar2c  - 1600x1296 center camera calibration (writes cam0_sensor_r2_{single|left|right}.yaml)
+    camerar2l  - 1600x1296 left camera calibration (writes cam1_sensor_r2_{single|left|right}.yaml)
+    camerar2r  - 1600x1296 right camera calibration (writes cam2_sensor_r2_{single|left|right}.yaml)
     MCUID      - Query device MCUID
     DMZEROSET  - Set DM zero offset
+    VERSION    - Query current firmware/software version; if no response, version is too old
     """
     
     if len(sys.argv) < 2:
@@ -68,7 +72,7 @@ Usage:
             sys.exit(1)
         record_value = sys.argv[2]
     
-    valid_commands = ['1234', 'camerarc', 'camerarl', 'camerarr', 'MCUID', 'DMZEROSET']
+    valid_commands = ['1234', 'camerarc', 'camerarl', 'camerarr', 'camerar2c', 'camerar2l', 'camerar2r', 'MCUID', 'DMZEROSET', 'VERSION']
     if record_value not in valid_commands:
         print(f"Error: argument must be one of {valid_commands}")
         print(usage)
@@ -81,6 +85,12 @@ Usage:
         yaml_filename = f"cam1_sensor_{side}.yaml"
     elif record_value == "camerarr":
         yaml_filename = f"cam2_sensor_{side}.yaml"
+    elif record_value == "camerar2c":
+        yaml_filename = f"cam0_sensor_r2_{side}.yaml"
+    elif record_value == "camerar2l":
+        yaml_filename = f"cam1_sensor_r2_{side}.yaml"
+    elif record_value == "camerar2r":
+        yaml_filename = f"cam2_sensor_r2_{side}.yaml"
     
     if yaml_filename:
         script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -118,7 +128,7 @@ Usage:
         time.sleep(1.0)
         bus.add_cmd(CmdPack.pack_calib(record=record_value.encode("utf-8")))
 
-        if record_value in ("MCUID", "DMZEROSET"):
+        if record_value in ("MCUID", "DMZEROSET", "VERSION"):
             bus.wait_for_calib_response(timeout=3.0)
         elif record_value.startswith("camera"):
             bus.wait_for_calib_response(timeout=2.0)
@@ -133,6 +143,8 @@ Usage:
             print("MCUID query executed")
         elif record_value == "DMZEROSET":
             print("DMZEROSET command executed")
+        elif record_value == "VERSION":
+            print("VERSION query executed")
         else:
             print(f"Finished sending command: {record_value}")
             if yaml_filename:

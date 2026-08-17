@@ -195,10 +195,14 @@ Use [scripts/camera_cmd.py](scripts/camera_cmd.py) for calibration and device ID
 **Single device:**
 
 ```shell
-python3 scripts/camera_cmd.py camerarc   # Center camera calibration
-python3 scripts/camera_cmd.py camerarl   # Left camera calibration
-python3 scripts/camera_cmd.py camerarr   # Right camera calibration
+python3 scripts/camera_cmd.py camerarc   # 640x480 center camera calibration
+python3 scripts/camera_cmd.py camerarl   # 640x480 left camera calibration
+python3 scripts/camera_cmd.py camerarr   # 640x480 right camera calibration
+python3 scripts/camera_cmd.py camerar2c  # 1600x1296 center camera calibration
+python3 scripts/camera_cmd.py camerar2l  # 1600x1296 left camera calibration
+python3 scripts/camera_cmd.py camerar2r  # 1600x1296 right camera calibration
 python3 scripts/camera_cmd.py MCUID      # Device ID
+python3 scripts/camera_cmd.py VERSION    # Query current software/firmware version
 ```
 
 **Dual device (left / right):**
@@ -207,15 +211,28 @@ python3 scripts/camera_cmd.py MCUID      # Device ID
 python3 scripts/camera_cmd.py left camerarc
 python3 scripts/camera_cmd.py left camerarl
 python3 scripts/camera_cmd.py left camerarr
+python3 scripts/camera_cmd.py left camerar2c
+python3 scripts/camera_cmd.py left camerar2l
+python3 scripts/camera_cmd.py left camerar2r
 python3 scripts/camera_cmd.py left MCUID
+python3 scripts/camera_cmd.py left VERSION
 
 python3 scripts/camera_cmd.py right camerarc
 python3 scripts/camera_cmd.py right camerarl
 python3 scripts/camera_cmd.py right camerarr
+python3 scripts/camera_cmd.py right camerar2c
+python3 scripts/camera_cmd.py right camerar2l
+python3 scripts/camera_cmd.py right camerar2r
 python3 scripts/camera_cmd.py right MCUID
+python3 scripts/camera_cmd.py right VERSION
 ```
 
 Calibration YAML files are saved under `scripts/calib_result/`.
+
+Notes:
+- `camerarl`, `camerarc`, `camerarr` are for `640x480` calibration files.
+- `camerar2l`, `camerar2c`, `camerar2r` are for `1600x1296` calibration files.
+- `VERSION` can query the current software version. If no response is returned, the device firmware/software is too old.
 
 
 

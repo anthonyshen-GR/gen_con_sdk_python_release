@@ -194,10 +194,14 @@ python3 start_gripper.py left --camera-fps 60
 **单设备：**
 
 ```shell
-python3 scripts/camera_cmd.py camerarc   # 中间相机标定
-python3 scripts/camera_cmd.py camerarl   # 左侧相机标定
-python3 scripts/camera_cmd.py camerarr   # 右侧相机标定
+python3 scripts/camera_cmd.py camerarc   # 640x480 中间相机标定
+python3 scripts/camera_cmd.py camerarl   # 640x480 左侧相机标定
+python3 scripts/camera_cmd.py camerarr   # 640x480 右侧相机标定
+python3 scripts/camera_cmd.py camerar2c  # 1600x1296 中间相机标定
+python3 scripts/camera_cmd.py camerar2l  # 1600x1296 左侧相机标定
+python3 scripts/camera_cmd.py camerar2r  # 1600x1296 右侧相机标定
 python3 scripts/camera_cmd.py MCUID      # 设备 ID
+python3 scripts/camera_cmd.py VERSION    # 查询当前软件/固件版本
 ```
 
 **双设备（左 / 右）：**
@@ -206,15 +210,28 @@ python3 scripts/camera_cmd.py MCUID      # 设备 ID
 python3 scripts/camera_cmd.py left camerarc
 python3 scripts/camera_cmd.py left camerarl
 python3 scripts/camera_cmd.py left camerarr
+python3 scripts/camera_cmd.py left camerar2c
+python3 scripts/camera_cmd.py left camerar2l
+python3 scripts/camera_cmd.py left camerar2r
 python3 scripts/camera_cmd.py left MCUID
+python3 scripts/camera_cmd.py left VERSION
 
 python3 scripts/camera_cmd.py right camerarc
 python3 scripts/camera_cmd.py right camerarl
 python3 scripts/camera_cmd.py right camerarr
+python3 scripts/camera_cmd.py right camerar2c
+python3 scripts/camera_cmd.py right camerar2l
+python3 scripts/camera_cmd.py right camerar2r
 python3 scripts/camera_cmd.py right MCUID
+python3 scripts/camera_cmd.py right VERSION
 ```
 
 标定生成的 YAML 文件保存在 `scripts/calib_result/` 目录下。
+
+说明：
+- `camerarl`、`camerarc`、`camerarr` 是 `640x480` 分辨率下的标定文件。
+- `camerar2l`、`camerar2c`、`camerar2r` 是 `1600x1296` 分辨率下的标定文件。
+- `VERSION` 可查询当前软件版本；如果查询不到，说明版本过旧。
 
 
 
